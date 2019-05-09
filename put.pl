@@ -23,4 +23,4 @@ foreach my $img (@images) {
 	$cnt++;
 }
 $s3x->close();
-print "inserted $cnt blob records as S3X $img object\n";
+print "inserted $cnt blob records into S3X object $OBJPATH\n";

@@ -13,4 +13,4 @@ binmode($fh);
 print $fh $s3x->readBlob($FILENAME);
 close $fh;
 
-print "Saved as ./$FILENAME\n";
+print "saved as ./$FILENAME\n";
