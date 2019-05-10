@@ -28,14 +28,14 @@ sub exist {
 }
 
 sub open {
-	my ($self, $replace) = @_;
+	my ($self, $content, $replace) = @_;
 	if ($self->exist() && !$replace) {
-		return;
+		die "key/value object exists, use replace option";
 	}
 	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=&finalize=");
 	$req->header('x-ccow-object-oflags' => $replace ? '3' : '2');
 	$req->header('x-ccow-chunkmap-btree-order' => $self->{_order});
-	$req->content_type('application/octet-stream');
+	$req->content_type($content);
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
 		die "communication error: " . $res->status_line;
@@ -71,12 +71,13 @@ sub close {
 }
 
 sub insertBlob {
-	my ($self, $key, $data) = @_;
+	my ($self, $key, $data, $mtime, $content) = @_;
 	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=$key");
 	if (defined($self->{_sid})) {
 		$req->header('x-session-id' => $self->{_sid});
 	}
-	$req->content_type('application/octet-stream');
+	$req->header('timestamp' => $mtime);
+	$req->content_type($content);
 	$req->content($data);
 
 	my $res = $self->{_ua}->request($req);
