@@ -5,37 +5,100 @@ use warnings;
 package S3X_KV;
 
 use LWP::UserAgent;
+use S3X_CON;
 
 sub new {
 	my $class = shift;
 	my $self = {
 		_path => shift,
 		_order => shift || 4,
-		_ua => LWP::UserAgent->new,
 		_sid => undef,
 	};
 	die "required path argument is missing" if !defined($self->{_path});
+	$self->{_ua} = LWP::UserAgent->new(
+		ssl_opts => {
+			verify_hostname => 0,
+			SSL_verify_mode => 0,
+		},
+	);
 	$self->{_ua}->agent("EdgeX-PerlClient/1.0");
+
+	my $host = '';
+	my $key = '';
+	my $secret = '';
+	my $secure = 0;
+	my $config = $ENV{"HOME"} . "/.s3cfg";
+	if (open(FH, '<', $config)) {
+		while(<FH>){
+			if ($_ =~ /^host_base\s*=\s*([^\s]+)/) {
+				$host = $1;
+			}
+			if ($_ =~ /^access_key\s*=\s*(\w+)/) {
+				$key = $1;
+			}
+			if ($_ =~ /^secret_key\s*=\s*(\w+)/) {
+				$secret = $1;
+			}
+			if ($_ =~ /^use_https\s*=\s*(\w+)/) {
+				$secure = ($1 eq 'True' ? 1 : 0);
+			}
+		}
+		close(FH)
+	}
+	$config = ".s3cfg";
+	if (open(FH, '<', $config)) {
+		while(<FH>){
+			if ($_ =~ /^host_base\s*=\s*([^\s]+)/) {
+				$host = $1;
+			}
+			if ($_ =~ /^access_key\s*=\s*(\w+)/) {
+				$key = $1;
+			}
+			if ($_ =~ /^secret_key\s*=\s*(\w+)/) {
+				$secret = $1;
+			}
+			if ($_ =~ /^use_https\s*=\s*(\w+)/) {
+				$secure = ($1 eq 'True' ? 1 : 0);
+			}
+		}
+		close(FH)
+	}
+	$host = $ENV{"host_base"} if ($ENV{"host_base"});
+	$key = $ENV{"access_key"} if ($ENV{"access_key"});
+	$secret = $ENV{"secret_key"} if ($ENV{"secret_key"});
+	$secure = $ENV{"secure"} if ($ENV{"secure"});
+
+	print "Host  base: " . $host . "\n";
+	print "Access key: " . $key . "\n";
+	print "Secure connection: " . $secure . "\n";
+
+	$self->{_conn} = new S3X_CON(
+        $host,
+        $key,
+        $secret,
+        $secure,
+	);
 	bless $self, $class;
 	return $self;
 }
 
 sub exist {
 	my ($self) = @_;
-	my $req = HTTP::Request->new(HEAD => $self->{_path});
+	my $req = $self->{_conn}->make_request("HEAD", $self->{_path}, '', '', '');
 	my $res = $self->{_ua}->request($req);
 	return $res->is_success;
 }
 
 sub open {
 	my ($self, $content, $replace) = @_;
-	if ($self->exist() && !$replace) {
-		die "key/value object exists, use replace option";
+	if ($self->exist()) {
+		return;
 	}
-	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=&finalize=");
-	$req->header('x-ccow-object-oflags' => $replace ? '3' : '2');
-	$req->header('x-ccow-chunkmap-btree-order' => $self->{_order});
-	$req->content_type($content);
+	my %headers = ();
+	$headers{'x-ccow-object-oflags'} = $replace ? '3' : '2';
+	$headers{'x-ccow-chunkmap-btree-order'} = $self->{_order} if ($self->{_order});
+	$headers{'content_type'} = $content if ($content);
+	my $req = $self->{_conn}->make_request("POST", $self->{_path} . "?comp=kv&key=&finalize=",  \%headers, '', '');
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
 		die "communication error: " . $res->status_line;
@@ -44,12 +107,13 @@ sub open {
 
 sub abort {
 	my ($self, $replace) = @_;
-	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=&cancel=");
+	my %headers = ();
 	if (defined($self->{_sid})) {
-		$req->header('x-session-id' => $self->{_sid});
+		$headers{'x-session-id'} = $self->{_sid};
 	} else {
 		return;
 	}
+	my $req = $self->{_conn}->make_request("POST", $self->{_path} . "?comp=kv&key=&cancel=",  \%headers, '', '');
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
 		die "communication error: " . $res->status_line;
@@ -58,12 +122,13 @@ sub abort {
 
 sub close {
 	my ($self, $replace) = @_;
-	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=&finalize=");
+	my %headers = ();
 	if (defined($self->{_sid})) {
-		$req->header('x-session-id' => $self->{_sid});
+		$headers{'x-session-id'} = $self->{_sid};
 	} else {
 		return;
 	}
+	my $req = $self->{_conn}->make_request("POST", $self->{_path} . "?comp=kv&key=&finalize=",  \%headers, '', '');
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
 		die "communication error: " . $res->status_line;
@@ -72,13 +137,15 @@ sub close {
 
 sub insertBlob {
 	my ($self, $key, $data, $mtime, $content) = @_;
-	my $req = HTTP::Request->new(POST => $self->{_path} . "?comp=kv&key=$key");
+
+	my %headers = ();
 	if (defined($self->{_sid})) {
-		$req->header('x-session-id' => $self->{_sid});
+		$headers{'x-session-id'} = $self->{_sid};
 	}
-	$req->header('timestamp' => $mtime);
-	$req->content_type($content);
-	$req->content($data);
+	$headers{'timestamp'} = $mtime if ($mtime);
+	$headers{'content_type'} = $content if ($content);
+
+	my $req = $self->{_conn}->make_request("POST", $self->{_path} . "?comp=kv&key=$key", \%headers, $data, '');
 
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
@@ -92,11 +159,14 @@ sub insertBlob {
 
 sub deleteBlob {
 	my ($self, $key) = @_;
-	my $req = HTTP::Request->new(DELETE => $self->{_path} . "?comp=kv&key=$key");
+
+	my %headers = ();
 	if (defined($self->{_sid})) {
-		$req->header('x-session-id' => $self->{_sid});
+		$headers{'x-session-id'} = $self->{_sid};
 	}
-	$req->content_type('application/octet-stream');
+	$headers{'content_type'} = 'application/octet-stream';
+
+	my $req = $self->{_conn}->make_request("DELETE", $self->{_path} . "?comp=kv&key=$key", \%headers, '', '');
 
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
@@ -110,8 +180,10 @@ sub deleteBlob {
 
 sub readBlob {
 	my ($self, $key) = @_;
-	my $req = HTTP::Request->new(GET => $self->{_path} . "?comp=kvget&key=$key");
-	$req->content_type('application/octet-stream');
+
+	my %headers = ();
+	$headers{'content_type'} = 'application/octet-stream';
+	my $req = $self->{_conn}->make_request("GET", $self->{_path} . "?comp=kvget&key=$key", \%headers, '', '');
 
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
@@ -122,7 +194,9 @@ sub readBlob {
 
 sub list {
 	my ($self) = @_;
-	my $req = HTTP::Request->new(GET => $self->{_path} . '?comp=kv');
+
+	my $req = $self->{_conn}->make_request("GET", $self->{_path} . "?comp=kv", '', '', '');
+
 	my $res = $self->{_ua}->request($req);
 	if (!$res->is_success) {
 		die "communication error: " . $res->status_line;
