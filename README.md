@@ -12,6 +12,38 @@ It is S3 compatible protocol, with extensions that allows batch operations
 so that load of hundreds objects (like pictures, logs, packets, etc) can be
 combined as one S3 emulated object.
 
+## Configuration
+
+1. Clone Perl connector repository
+
+```
+git clone https://github.com/highpeakdata/edgex-perl-connector.git
+cd edgex-perl-connector
+```
+
+2. Install additonal Perl modules (if needed)
+
+```
+cpan Digest::HMAC_SHA1
+cpan LWP::Protocol::https
+```
+
+3. Setup configuration parameters
+
+edgex-perl-connector gets the following parameters from s3cmd configuration file ~/.s3cfg
+
+```
+host_base - s3x host[:port]
+use_https - True/False 
+access_key - access key for s3 authentication
+secret_key - secret key for s3 authentication
+```
+
+The local file .s3cfg could be used to override the global parameters from .s3cfg
+
+It is also possible to override host_base, access_key, secret_key parameters through environment variables.
+
+
 ## Examples
 
 Insert local files into S3X as one blob object with Key-Value access
@@ -41,6 +73,21 @@ List keys of a given S3X object
 1540709217.jpg  2018-10-27 23:47:46     image/jpeg      374701
 1540709277.jpg  2018-10-27 23:48:08     image/jpeg      374406
 1540709337.jpg  2018-10-27 23:49:45     image/jpeg      375400
+```
+
+Insert local files one by one into S3X blob object with Key-Value access
+
+```
+./put.pl ./input/1540708437.jpg bk1/obj2
+./put.pl ./input/1540708497.jpg bk1/obj2
+```
+
+List keys of a given S3X object
+
+```
+./list.pl bk1/obj2
+1540708437.jpg  2018-10-27 23:34:12     image/jpeg      373116
+1540708497.jpg  2018-10-27 23:35:47     image/jpeg      373537
 ```
 
 Download a given key of S3X object as a local file
