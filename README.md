@@ -17,14 +17,14 @@ combined as one S3 emulated object.
 Insert local files into S3X as one blob object with Key-Value access
 
 ```
-./put.pl ./input http://10.3.3.3:3000/bk1/obj1
+./put.pl ./input bk1/obj1
 inserted 13 blob records into S3X object http://10.3.3.3:3000/bk1/obj1
 ```
 
 List keys of a given S3X object
 
 ```
-./list.pl http://10.3.3.3:3000/bk1/obj1
+./list.pl bk1/obj1
 1540708437.jpg  2018-10-27 23:34:12     image/jpeg      373116
 1540708497.jpg  2018-10-27 23:35:47     image/jpeg      373537
 1540708557.jpg  2018-10-27 23:36:10     image/jpeg      373228
@@ -46,12 +46,12 @@ List keys of a given S3X object
 Download a given key of S3X object as a local file
 
 ```
-./get.pl http://10.3.3.3:3000/bk1/obj1 1540699677.jpg
+./get.pl bk1/obj1 1540699677.jpg
 saved as ./1540699677.jpg
 ```
 
 Delete a given key of existing S3X object
 
 ```
-./del.pl http://10.3.3.3:3000/bk1/obj1 1540699677.jpg
+./del.pl bk1/obj1 1540699677.jpg
 ```
