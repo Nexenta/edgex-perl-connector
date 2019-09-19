@@ -72,7 +72,7 @@ It is also possible to override individual parameters through environment variab
 
 ## Examples
 
-Insert local files into S3X as one blob object with Key-Value access
+Insert local files from ./input folder into S3X object bk1/obj1 as one blob object with Key-Value access
 
 ```
 ./put.pl ./input bk1/obj1
