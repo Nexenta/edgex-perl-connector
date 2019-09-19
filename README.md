@@ -41,25 +41,33 @@ secret_key - secret key for s3 authentication
 
 The local file .s3cfg could be used to override the global parameters from ~/.s3cfg
 
-It is also possible to override host_base, access_key, secret_key parameters through environment variables.
+It is also possible to override individual parameters through environment variables.
 
 ## Commands
 
 1. Upload images
 
+```
 ./put.pl <input dir | input image> <target s3x path> [<content type> [replace]]
+```
   
 2. List images
 
+```
 ./list.pl <s3x path>
+```
 
 3. Download image
 
+```
 ./get.pl  <s3x path> <image name>
+```
   
 4. Delete image
 
+```
 ./del.pl  <s3x path> <image name>
+```
   
 
 ## Examples
