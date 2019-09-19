@@ -12,6 +12,8 @@ It is S3 compatible protocol, with extensions that allows batch operations
 so that load of hundreds objects (like pictures, logs, packets, etc) can be
 combined as one S3 emulated object.
 
+The s3x connector supports s3 compatible authentication and bucket level access control.
+
 ## Configuration
 
 1. Clone Perl connector repository
